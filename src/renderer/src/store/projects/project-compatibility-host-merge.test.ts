@@ -55,6 +55,17 @@ describe('mergeFetchedProjectCompatibilityForHost', () => {
     expect(options.map((option) => option.displayName)).toEqual(['api', 'app'])
   })
 
+  it('drops a direct-SSH project once its repo is removed', () => {
+    const merged = mergeFetchedProjectCompatibilityForHost({
+      previous: projection([localRepo, sshRepo]),
+      fetched: projection([localRepo]),
+      repos: [localRepo],
+      hostId: LOCAL_EXECUTION_HOST_ID
+    })
+
+    expect(merged.projects.map((project) => project.sourceRepoIds)).toEqual([[localRepo.id]])
+  })
+
   it('preserves runtime-owned projects across a local refresh', () => {
     const merged = mergeFetchedProjectCompatibilityForHost({
       previous: projection([runtimeRepo]),

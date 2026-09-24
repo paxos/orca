@@ -203,6 +203,8 @@ export function mergeFetchedProjectCompatibilityForHost({
   const preservedProjects = previous.projects.filter(
     (project) =>
       !fetchedProjectIds.has(project.id) &&
+      // Why: a project whose setups and repos are all gone has no owner left to answer for it.
+      currentProjectOwnerHostIds(project).size > 0 &&
       (!previousProjectHostIds(project).has(hostId) || projectHasCurrentOwnerOutsideHost(project))
   )
   // Why: both merges always allocate (sourceRepoIds is rebuilt per project, and fetched setups
