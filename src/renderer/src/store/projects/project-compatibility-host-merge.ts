@@ -135,14 +135,19 @@ export function mergeFetchedProjectCompatibilityForHost({
   repos: readonly Repo[]
   hostId: string
 }): Pick<RepoSlice, 'projects' | 'projectHostSetups'> {
-  const setupBelongsToFetchedCatalog = (setup: ProjectHostSetup): boolean => {
+  const catalogOwnsHost = (ownerHostId: string): boolean => {
     if (hostId !== LOCAL_EXECUTION_HOST_ID) {
-      return setup.hostId === hostId
+      return ownerHostId === hostId
     }
-    const owner = parseExecutionHostId(setup.hostId)
     // Why: desktop persistence owns local and direct-SSH setups; runtime setups stay authoritative on their remote Orca server.
-    return setup.hostId === LOCAL_EXECUTION_HOST_ID || owner?.kind === 'ssh'
+    return (
+      ownerHostId === LOCAL_EXECUTION_HOST_ID || parseExecutionHostId(ownerHostId)?.kind === 'ssh'
+    )
   }
+  const catalogOwnsAnyHost = (hostIds: ReadonlySet<string>): boolean =>
+    [...hostIds].some(catalogOwnsHost)
+  const setupBelongsToFetchedCatalog = (setup: ProjectHostSetup): boolean =>
+    catalogOwnsHost(setup.hostId)
   const fetchedSetupsForHost = fetched.projectHostSetups.filter(setupBelongsToFetchedCatalog)
   const preservedSetups = previous.projectHostSetups.filter(
     (setup) => !setupBelongsToFetchedCatalog(setup)
@@ -179,8 +184,8 @@ export function mergeFetchedProjectCompatibilityForHost({
       const previousProject = previousProjectById.get(project.id)
       // Why: repo-derived compatibility projects include every host; a one-host refresh should only reconcile or prune that host's ownership.
       return (
-        fetchedProjectHostIds(project).has(hostId) ||
-        (previousProject ? previousProjectHostIds(previousProject).has(hostId) : false)
+        catalogOwnsAnyHost(fetchedProjectHostIds(project)) ||
+        (previousProject ? catalogOwnsAnyHost(previousProjectHostIds(previousProject)) : false)
       )
     })
     .map((project) => {
