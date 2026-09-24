@@ -1,11 +1,8 @@
 import type { Project, ProjectHostSetup } from '../../../../shared/project-types'
 import type { Repo } from '../../../../shared/repo-types'
 import { reconcileCatalogRows } from '../slices/repo-identity-reconcile'
-import {
-  getRepoExecutionHostId,
-  LOCAL_EXECUTION_HOST_ID,
-  parseExecutionHostId
-} from '../../../../shared/execution-host'
+import { getRepoExecutionHostId, LOCAL_EXECUTION_HOST_ID } from '../../../../shared/execution-host'
+import { catalogOwnsHost } from '../slices/project-group-owner-routing'
 import type { RepoSlice } from '../repos/repo-state'
 import {
   getProjectHostSetupOwnerKey,
@@ -135,19 +132,11 @@ export function mergeFetchedProjectCompatibilityForHost({
   repos: readonly Repo[]
   hostId: string
 }): Pick<RepoSlice, 'projects' | 'projectHostSetups'> {
-  const catalogOwnsHost = (ownerHostId: string): boolean => {
-    if (hostId !== LOCAL_EXECUTION_HOST_ID) {
-      return ownerHostId === hostId
-    }
-    // Why: desktop persistence owns local and direct-SSH setups; runtime setups stay authoritative on their remote Orca server.
-    return (
-      ownerHostId === LOCAL_EXECUTION_HOST_ID || parseExecutionHostId(ownerHostId)?.kind === 'ssh'
-    )
-  }
+  // Why: desktop persistence owns local and direct-SSH setups; runtime setups stay authoritative on their remote Orca server.
   const catalogOwnsAnyHost = (hostIds: ReadonlySet<string>): boolean =>
-    [...hostIds].some(catalogOwnsHost)
+    [...hostIds].some((ownerHostId) => catalogOwnsHost(hostId, ownerHostId))
   const setupBelongsToFetchedCatalog = (setup: ProjectHostSetup): boolean =>
-    catalogOwnsHost(setup.hostId)
+    catalogOwnsHost(hostId, setup.hostId)
   const fetchedSetupsForHost = fetched.projectHostSetups.filter(setupBelongsToFetchedCatalog)
   const preservedSetups = previous.projectHostSetups.filter(
     (setup) => !setupBelongsToFetchedCatalog(setup)
